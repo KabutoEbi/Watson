@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Watson</title>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Watson</h1>
+        <div id="log"></div>
+        <div class="input-area">
+            <input id="msg" type="text" placeholder="Type your message..." />
+            <button onclick="send()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        let sessionId = sessionStorage.getItem("sessionId");
+        if (!sessionId) {
+            sessionId = crypto.randomUUID();
+            sessionStorage.setItem("sessionId", sessionId);
+        }
+
+        document.getElementById('msg').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') send();
+        });
+
+        async function send() {
+            const msgInput = document.getElementById('msg');
+            const msg = msgInput.value;
+            if (!msg.trim()) return;
+            
+            msgInput.value = "";
+            const log = document.getElementById('log');
+
+            log.innerHTML += `<div class="message user"><strong>You:</strong> ${msg}</div>`;
+            log.innerHTML += `<div class="message watson"><strong>Watson:</strong> <span class="loading">generating...</span>`;
+
+            const res = await fetch("http://localhost:8000/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    message: msg
+                })
+            });
+
+            const lastMessage = log.lastElementChild;
+            lastMessage.querySelector('.loading').remove();
+            const responseSpan = document.createElement('span');
+            lastMessage.appendChild(responseSpan);
+
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                responseSpan.textContent += decoder.decode(value);
+            }
+
+            lastMessage.innerHTML += `</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>
